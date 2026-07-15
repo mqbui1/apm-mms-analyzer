@@ -456,7 +456,7 @@ def generate(analysis: dict, ai_text: str, realm: str = "", generated_at: str = 
     # ── Environment distribution ──────────────────────────────────────────────
     env_rows = []
     for env, count in list(analysis["env_distribution"].items())[:20]:
-        pct_val = round(count / max(total, 1) * 100, 1)
+        pct_val = round(count / max(total_mts, 1) * 100, 1)
         bar_w = max(1, int(pct_val * 2))
         prod_marker = " <span class='badge green' style='font-size:10px'>prod</span>" if env.startswith("prod-") else ""
         env_rows.append(f"""<tr>
