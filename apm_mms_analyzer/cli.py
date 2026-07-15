@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from . import fetcher, patterns, ai_report
+from . import fetcher, patterns, ai_report, html_report
 
 
 def _print_deterministic(analysis: dict) -> None:
@@ -92,7 +92,9 @@ def main(argv: list[str] | None = None) -> None:
 
     # Output
     parser.add_argument("--output", "-o", metavar="FILE",
-                        help="Write AI report to file (default: stdout)")
+                        help="Write report to file (default: stdout)")
+    parser.add_argument("--format", "-f", choices=["md", "html"], default="md",
+                        help="Output format: md (default) or html")
 
     args = parser.parse_args(argv)
 
@@ -140,27 +142,42 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Calling Claude ({model_id[:60]}...)...", file=sys.stderr)
     report = ai_report.generate(analysis, model_id=model_id, region=region)
 
-    # Header block
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    header_lines = [
-        f"# APM MMS AI Analysis Report",
-        f"",
-        f"**Generated:** {ts}  ",
-        f"**Total MTS:** {analysis['total_mts']:,}  ",
-        f"**Unique operations:** {analysis['total_unique_ops']:,}  ",
-        f"**Reduction potential:** {analysis['reduction_pct']}%  ",
-        f"",
-        f"---",
-        f"",
-    ]
-    full_report = "\n".join(header_lines) + "\n" + report
 
-    if args.output:
-        with open(args.output, "w", encoding="utf-8") as fh:
-            fh.write(full_report)
-        print(f"\nReport saved to: {args.output}", file=sys.stderr)
+    if args.format == "html":
+        # Determine output path: default to reports/<timestamp>.html
+        out_path = args.output
+        if not out_path:
+            import os
+            os.makedirs("reports", exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            out_path = f"reports/mms_report_{stamp}.html"
+        rendered = html_report.generate(analysis, report, realm=args.realm, generated_at=ts)
+        with open(out_path, "w", encoding="utf-8") as fh:
+            fh.write(rendered)
+        print(f"\nHTML report: {out_path}", file=sys.stderr)
+        import subprocess, sys as _sys
+        subprocess.Popen(["open", out_path])
     else:
-        print(full_report)
+        # Markdown output
+        header_lines = [
+            "# APM MMS AI Analysis Report",
+            "",
+            f"**Generated:** {ts}  ",
+            f"**Total MTS:** {analysis['total_mts']:,}  ",
+            f"**Unique operations:** {analysis['total_unique_ops']:,}  ",
+            f"**Reduction potential:** {analysis['reduction_pct']}%  ",
+            "",
+            "---",
+            "",
+        ]
+        full_report = "\n".join(header_lines) + "\n" + report
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(full_report)
+            print(f"\nReport saved to: {args.output}", file=sys.stderr)
+        else:
+            print(full_report)
 
 
 if __name__ == "__main__":
