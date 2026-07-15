@@ -197,14 +197,19 @@ def call_bedrock(prompt: str, model_id: str = DEFAULT_MODEL, region: str = DEFAU
     """Invoke Claude via AWS Bedrock. Returns the response text."""
     try:
         import boto3
+        from botocore.config import Config
     except ImportError:
         return "[boto3 not installed — run: pip install boto3]"
 
     try:
-        client = boto3.client("bedrock-runtime", region_name=region)
+        client = boto3.client(
+            "bedrock-runtime",
+            region_name=region,
+            config=Config(read_timeout=300, connect_timeout=10),
+        )
         body = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "messages": [{"role": "user", "content": prompt}],
         }
         resp = client.invoke_model(modelId=model_id, body=json.dumps(body))

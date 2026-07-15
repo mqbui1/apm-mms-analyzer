@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from . import fetcher, patterns, ai_report
 
@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> None:
     report = ai_report.generate(analysis, model_id=model_id, region=region)
 
     # Header block
-    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     header_lines = [
         f"# APM MMS AI Analysis Report",
         f"",
