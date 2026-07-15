@@ -385,26 +385,25 @@ def _severity_badge(mts: int) -> str:
 
 def generate(analysis: dict, ai_text: str, realm: str = "", generated_at: str = "") -> str:
     """Build the full HTML report."""
-    total   = analysis["total_mts"]
-    unique  = analysis["total_unique_ops"]
-    saveable = analysis["total_mts_saveable"]
-    excl    = analysis["total_excl_mts"]
-    attacks = len(analysis["attacks"])
-    pct     = analysis["reduction_pct"]
-    prod    = analysis["prod_mts"]
-    cost    = total * 0.002
-    nonprod_pct = round(analysis["nonprod_mts"] / max(total, 1) * 100, 1)
+    total_mms = analysis["total_mms"]
+    total_mts = analysis["total_mts"]
+    mms_save  = analysis["total_mms_saveable"]
+    excl_mms  = analysis["total_excl_mms"]
+    attacks   = len(analysis["attacks"])
+    pct       = analysis["reduction_pct"]
+    cost      = total_mts * 0.002
+    nonprod_pct = round(analysis["nonprod_mts"] / max(total_mts, 1) * 100, 1)
 
     # ── Stat grid ─────────────────────────────────────────────────────────────
-    sev_color = "red" if total >= 100000 else "orange" if total >= 50000 else "yellow" if total >= 10000 else "green"
+    sev_color = "red" if total_mms >= 10000 else "orange" if total_mms >= 2000 else "yellow" if total_mms >= 500 else "green"
     stats_html = f"""<div class="stat-grid">
-  {_stat_box(f"{total:,}", "Total MTS", sev_color)}
-  {_stat_box(f"{unique:,}", "Unique Operations", "blue")}
+  {_stat_box(f"{total_mms:,}", "Total APM MMS", sev_color)}
+  {_stat_box(f"{total_mts:,}", "Underlying MTS", "")}
   {_stat_box(f"${cost:,.2f}", "Est. $/mo", "purple")}
-  {_stat_box(f"{saveable:,}", "MTS Saveable (Param)", "green")}
-  {_stat_box(f"{excl:,}", "MTS Saveable (Exclusion)", "green")}
+  {_stat_box(f"{mms_save:,}", "MMS Saveable (Param)", "green")}
+  {_stat_box(f"{excl_mms:,}", "MMS Saveable (Exclusion)", "green")}
   {_stat_box(f"{attacks}", "Attack Payloads", "red" if attacks else "green")}
-  {_stat_box(f"{pct}%", "Reduction Potential", "orange")}
+  {_stat_box(f"{pct}%", "MMS Reduction Potential", "orange")}
   {_stat_box(f"{nonprod_pct}%", "Non-Prod MTS", "")}
 </div>"""
 
@@ -420,16 +419,16 @@ def generate(analysis: dict, ai_text: str, realm: str = "", generated_at: str = 
             rows.append(f"""<tr>
   <td class="rank">{i}</td>
   <td><code class="pat-code">{html.escape(p['pattern'])}</code></td>
-  <td style="text-align:right">{p['mts_count']:,}</td>
+  <td style="text-align:right">{p['mms_count']:,}</td>
   <td style="text-align:right">{p['unique_values']:,}</td>
-  <td style="text-align:right"><strong>{p['mts_saved']:,}</strong></td>
+  <td style="text-align:right"><strong>{p['mms_saved']:,}</strong></td>
   <td style="color:var(--muted);font-size:12px">{svcs_str or '—'}</td>
   <td style="color:var(--muted);font-size:11px">{samples_str}</td>
 </tr>""")
         patterns_html = f"""<table class="patterns-table">
 <thead><tr>
-  <th>#</th><th>Pattern</th><th style="text-align:right">MTS</th>
-  <th style="text-align:right">Unique Vals</th><th style="text-align:right">MTS Saved</th>
+  <th>#</th><th>Pattern</th><th style="text-align:right">MMS</th>
+  <th style="text-align:right">Unique Vals</th><th style="text-align:right">MMS Saved</th>
   <th>Services</th><th>Sample Values</th>
 </tr></thead>
 <tbody>{"".join(rows)}</tbody>

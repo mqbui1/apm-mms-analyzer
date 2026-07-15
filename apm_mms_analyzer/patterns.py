@@ -149,6 +149,7 @@ def analyze(ops: list[dict]) -> dict:
         if len(members) < 2:
             continue
         total_mts = sum(m["mts_count"] for m in members)
+        mms_count = len(members)   # each unique (op, svc, env) triple = 1 MMS
         rx = _extraction_regex(pattern)
         unique_vals: set[str] = set()
         if rx:
@@ -158,16 +159,17 @@ def analyze(ops: list[dict]) -> dict:
                     unique_vals.update(g for g in m.groups() if g)
         consolidation.append({
             "pattern":       pattern,
-            "mts_count":     total_mts,
-            "unique_ops":    len(members),
-            "mts_saved":     total_mts - 1,
-            "unique_values": len(unique_vals) if unique_vals else len(members),
+            "mms_count":     mms_count,       # unique MMS (APM billing units)
+            "mts_count":     total_mts,       # total MTS rows (metric variants)
+            "mms_saved":     mms_count - 1,   # MMS eliminated by parameterization
+            "mts_saved":     total_mts - 1,   # MTS rows eliminated
+            "unique_values": len(unique_vals) if unique_vals else mms_count,
             "val_samples":   sorted(unique_vals)[:8],
             "services":      sorted({o["service"] for o in members if o["service"]}),
             "environments":  sorted({o["environment"] for o in members if o["environment"]}),
             "op_samples":    [o["operation"] for o in members[:3]],
         })
-    consolidation.sort(key=lambda x: -x["mts_count"])
+    consolidation.sort(key=lambda x: -x["mms_count"])
 
     # ── 2. Attack / probe detection ───────────────────────────────────────────
     attacks = []
@@ -201,28 +203,41 @@ def analyze(ops: list[dict]) -> dict:
                 break
 
     # ── Summary ───────────────────────────────────────────────────────────────
+    total_mms            = len(deduped)   # unique (op, svc, env) = APM billing unit
+    total_mms_saveable   = sum(c["mms_saved"] for c in consolidation)
+    total_excl_mms       = sum(len(members) for members in exclusions.values())
+    attack_mms           = len(attacks)
+
     total_mts_saveable = sum(c["mts_saved"] for c in consolidation)
     total_excl_mts     = sum(
         sum(op["mts_count"] for op in members)
         for members in exclusions.values()
     )
-    attack_mts     = sum(a["mts_count"] for a in attacks)
-    reduction_pct  = round(
-        (total_mts_saveable + attack_mts + total_excl_mts) / max(total_mts, 1) * 100, 1
+    attack_mts = sum(a["mts_count"] for a in attacks)
+
+    # Reduction % expressed in MMS terms (the primary billing metric)
+    reduction_pct = round(
+        (total_mms_saveable + attack_mms + total_excl_mms) / max(total_mms, 1) * 100, 1
     )
 
     return {
+        # MMS metrics (primary — APM billing units)
+        "total_mms":           total_mms,
+        "total_mms_saveable":  total_mms_saveable,
+        "total_excl_mms":      total_excl_mms,
+        "attack_mms":          attack_mms,
+        # MTS metrics (secondary — raw time series rows)
         "total_mts":           total_mts,
-        "total_unique_ops":    len(deduped),
+        "total_mts_saveable":  total_mts_saveable,
+        "total_excl_mts":      total_excl_mts,
+        "prod_mts":            prod_mts,
+        "nonprod_mts":         nonprod_mts,
+        # Shared
         "consolidation":       consolidation,
         "attacks":             attacks,
         "attack_by_type":      dict(attack_by_type),
         "exclusions":          dict(exclusions),
         "env_distribution":    dict(env_dist.most_common()),
         "service_distribution": dict(svc_dist.most_common(30)),
-        "prod_mts":            prod_mts,
-        "nonprod_mts":         nonprod_mts,
-        "total_mts_saveable":  total_mts_saveable,
-        "total_excl_mts":      total_excl_mts,
         "reduction_pct":       reduction_pct,
     }

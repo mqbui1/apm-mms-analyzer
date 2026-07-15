@@ -12,51 +12,49 @@ from . import fetcher, patterns, ai_report, html_report
 
 def _print_deterministic(analysis: dict) -> None:
     """Print the deterministic analysis summary to stdout."""
-    total   = analysis["total_mts"]
-    unique  = analysis["total_unique_ops"]
-    saveable = analysis["total_mts_saveable"]
-    excl    = analysis["total_excl_mts"]
-    attacks = len(analysis["attacks"])
-    pct     = analysis["reduction_pct"]
-    prod    = analysis["prod_mts"]
-    nonprod = analysis["nonprod_mts"]
-    cost    = total * float(os.environ.get("MTS_COST_PER_MONTH", "0.002"))
+    total_mms = analysis["total_mms"]
+    total_mts = analysis["total_mts"]
+    mms_save  = analysis["total_mms_saveable"]
+    excl_mms  = analysis["total_excl_mms"]
+    attacks   = len(analysis["attacks"])
+    pct       = analysis["reduction_pct"]
+    prod_mts  = analysis["prod_mts"]
+    prod_pct  = round(prod_mts / max(total_mts, 1) * 100, 1)
+    cost      = total_mts * float(os.environ.get("MTS_COST_PER_MONTH", "0.002"))
 
     print("\n" + "=" * 66)
     print("APM MMS ANALYSIS")
     print("=" * 66)
-    print(f"  Total MTS (billing rows):    {total:>10,}")
-    print(f"  Unique operations:           {unique:>10,}")
-    print(f"  Production MTS:              {prod:>10,}  ({round(prod/max(total,1)*100,1)}%)")
-    print(f"  Non-production MTS:          {nonprod:>10,}  ({round(nonprod/max(total,1)*100,1)}%)")
+    print(f"  Total APM MMS:               {total_mms:>10,}")
+    print(f"  Total underlying MTS:        {total_mts:>10,}")
+    print(f"  Production MTS:              {prod_mts:>10,}  ({prod_pct}%)")
     print(f"  Est. monthly cost:           ${cost:>10,.2f}")
-    print(f"  Attack payloads detected:    {attacks:>10,}")
-    print(f"  MTS saveable (param):        {saveable:>10,}")
-    print(f"  MTS saveable (exclusion):    {excl:>10,}")
-    print(f"  Est. reduction potential:    {pct:>9.1f}%")
+    print(f"  Attack payloads:             {attacks:>10,}  MMS")
+    print(f"  MMS saveable (param):        {mms_save:>10,}  MMS")
+    print(f"  MMS saveable (exclusion):    {excl_mms:>10,}  MMS")
+    print(f"  Est. MMS reduction:          {pct:>9.1f}%")
     print()
 
     top = analysis["consolidation"][:20]
     if top:
         print(f"  TOP PARAMETERIZABLE PATTERNS  (top {len(top)})")
-        print(f"  {'#':>3}  {'MTS':>7}  {'Saved':>7}  {'Uniq':>5}  Pattern")
+        print(f"  {'#':>3}  {'MMS':>6}  {'Saved':>6}  {'Uniq':>5}  Pattern")
         print("  " + "─" * 70)
         for i, p in enumerate(top, 1):
-            print(f"  {i:>3}  {p['mts_count']:>7,}  {p['mts_saved']:>7,}  {p['unique_values']:>5}  {p['pattern']}")
+            print(f"  {i:>3}  {p['mms_count']:>6,}  {p['mms_saved']:>6,}  {p['unique_values']:>5}  {p['pattern']}")
         print()
 
     if analysis["attacks"]:
         print("  ATTACK / PROBE SIGNATURES DETECTED")
         for atype, ops in analysis["attack_by_type"].items():
             sample = ops[0]["operation"][:60] if ops else ""
-            print(f"    {atype} ({len(ops)} MTS): {sample}")
+            print(f"    {atype} ({len(ops)} MMS): {sample}")
         print()
 
     if analysis["exclusions"]:
         print("  EXCLUSION CANDIDATES")
         for cls, ops in analysis["exclusions"].items():
-            mts = sum(o["mts_count"] for o in ops)
-            print(f"    {cls}: {mts:,} MTS across {len(ops)} ops")
+            print(f"    {cls}: {len(ops)} MMS")
         print()
 
 
