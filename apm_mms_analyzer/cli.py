@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -148,7 +149,6 @@ def main(argv: list[str] | None = None) -> None:
         # Determine output path: default to reports/<timestamp>.html
         out_path = args.output
         if not out_path:
-            import os
             os.makedirs("reports", exist_ok=True)
             stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             out_path = f"reports/mms_report_{stamp}.html"
@@ -156,7 +156,6 @@ def main(argv: list[str] | None = None) -> None:
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(rendered)
         print(f"\nHTML report: {out_path}", file=sys.stderr)
-        import subprocess, sys as _sys
         subprocess.Popen(["open", out_path])
     else:
         # Markdown output
