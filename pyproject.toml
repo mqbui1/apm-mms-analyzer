@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "apm-mms-analyzer"
+version = "0.1.0"
+description = "AI-powered APM Monitoring MetricSets (MMS) analysis for Splunk Observability"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+    "boto3>=1.28",
+]
+
+[project.scripts]
+apm-mms-analyze = "apm_mms_analyzer.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apm_mms_analyzer"]
