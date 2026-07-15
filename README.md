@@ -1,14 +1,18 @@
-# apm-mms-analyzer
+# splunk-metrics-advisor
 
-AI-powered analysis of APM Monitoring MetricSets (MMS) for Splunk Observability Cloud.
+AI-powered metrics cardinality analysis for Splunk Observability Cloud.
 
-Fetches raw MMS data, detects high-cardinality patterns, and calls Claude (via AWS Bedrock) to produce an actionable analysis report — including OTel Collector config snippets for the top remediation opportunities.
+Analyses both **APM Monitoring MetricSets (MMS)** and **custom Infrastructure Monitoring (IM) metrics** — identifies cardinality root causes, quantifies reduction potential, and generates actionable remediation steps with OTel Collector YAML.
 
-## What it does
+## Modes
 
-1. **Fetches** all APM MMS rows from your Splunk Observability org (or reads from a TSV dump)
-2. **Analyzes** operation name patterns: parameterizable IDs, attack probes, exclusion candidates
-3. **Calls Claude** with the structured analysis to produce a narrative report with prioritized actions and OTel Collector YAML
+### `--mode apm` (default) — APM MMS analysis
+
+Fetches APM MMS rows, detects high-cardinality operation name patterns (parameterisable IDs, attack probes, exclusion candidates), and calls Claude to produce a prioritised remediation report with OTel Collector `transform` processor config.
+
+### `--mode custom` — Custom IM metrics analysis
+
+Reads the engineering custom metrics CSV export, identifies high-cardinality dimensions causing MTS explosion (e.g. `aws.ecs.task.arn`, `service.instance.id` on JVM metrics), analyses per-account token distribution, and calls Claude to produce a remediation report with OTel Collector YAML.
 
 ## Install
 
@@ -20,79 +24,67 @@ uv pip install -e .
 
 ## Usage
 
-### Live fetch + AI analysis
+### APM MMS — live fetch
 
 ```bash
 export SPLUNK_ACCESS_TOKEN=your_token
-export SPLUNK_REALM=us1          # us1, us2, eu0, ap0, etc.
+export SPLUNK_REALM=us1
 export AWS_DEFAULT_REGION=us-west-2
 
-apm-mms-analyze
+metrics-advisor --format html
 ```
 
-### Filter by environment
+### APM MMS — from TSV dump
 
 ```bash
-apm-mms-analyze --environment prod-us
+metrics-advisor --input ops_dump.tsv --format html
 ```
 
-### Read from existing TSV dump (no Splunk API call)
-
-The TSV format matches the raw engineering export:
-`MTS_ID\t"operation"\t"service"\t"environment"`
+### APM MMS — dump raw TSV and exit
 
 ```bash
-apm-mms-analyze --input ops_dump.tsv
+metrics-advisor --dump ops_dump.tsv
 ```
 
-### Dump raw TSV and exit (no AI)
+### Custom metrics — from engineering CSV
 
 ```bash
-apm-mms-analyze --dump ops_dump.tsv
+metrics-advisor --mode custom --custom-input custom-metrics-analysis.csv --format html
 ```
 
-### Save report to file
+### Common options
 
 ```bash
-apm-mms-analyze --output report.md
-```
+# Skip AI, deterministic summary only
+metrics-advisor --mode custom --custom-input export.csv --no-ai
 
-### Skip AI analysis (deterministic only)
+# Save markdown report to file
+metrics-advisor --mode custom --custom-input export.csv --output report.md
 
-```bash
-apm-mms-analyze --no-ai
+# Filter APM by environment
+metrics-advisor --environment prod-us --format html
 ```
 
 ## Configuration
 
 | Env var | CLI flag | Default | Description |
 |---------|----------|---------|-------------|
-| `SPLUNK_ACCESS_TOKEN` | `--token` | required | Splunk API token |
+| `SPLUNK_ACCESS_TOKEN` | `--token` | required (apm mode) | Splunk API token |
 | `SPLUNK_REALM` | `--realm` | `us1` | Splunk realm |
-| `BEDROCK_MODEL_ID` | `--model` | see below | Bedrock model ARN or ID |
+| `BEDROCK_MODEL_ID` | `--model` | Claude Sonnet via Bedrock | Bedrock model ARN or ID |
 | `AWS_DEFAULT_REGION` | `--aws-region` | `us-west-2` | AWS region for Bedrock |
-
-Default Bedrock model: `arn:aws:bedrock:us-west-2:387769110234:application-inference-profile/fky19kpnw2m7`
+| `MTS_COST_PER_MONTH` | — | `0.002` | $/MTS/month for cost estimates |
+| `MMS_FETCH_LIMIT` | `--limit` | `0` (unlimited) | Max rows to fetch (apm mode) |
 
 ## AWS credentials
 
-The tool uses your default AWS credential chain (env vars, `~/.aws/credentials`, instance profile).
-Ensure the credentials have `bedrock:InvokeModel` permission on the configured model.
+Uses the default AWS credential chain (`~/.aws/credentials`, env vars, instance profile).
+Requires `bedrock:InvokeModel` on the configured model.
 
-## Output example
+## Output
 
-```
-APM MMS Analysis
-================
-Total MTS:         53,417
-Unique operations:    279
-Environments:          12
+HTML reports open automatically in the browser. Markdown reports print to stdout or save to `--output FILE`.
 
-## Executive Summary
-This org appears to be a mortgage/financial services platform...
-
-## Top 5 Actions
-1. Parameterize /case/{id} and /rebuttal/{id} — saves 630 MTS
-   OTel Collector config:
-   ...
-```
+HTML reports include:
+- **APM mode**: stat grid, parameterisable patterns table, AI analysis, environment distribution, attack signatures
+- **Custom mode**: stat grid, high-cardinality culprits table, AI analysis, top metrics, metric groups, token/account distribution
