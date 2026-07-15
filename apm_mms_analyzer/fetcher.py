@@ -28,7 +28,7 @@ def fetch_from_splunk(
     token: str,
     realm: str,
     environment: Optional[str] = None,
-    hard_limit: int = 500_000,
+    hard_limit: int = 0,
 ) -> list[dict]:
     """
     Fetch all APM MMS rows from Splunk Observability API.
@@ -60,13 +60,14 @@ def fetch_from_splunk(
     if total_count == 0:
         return []
 
-    fetch_up_to = min(total_count, hard_limit)
+    effective_limit = hard_limit if hard_limit > 0 else total_count
+    fetch_up_to = min(total_count, effective_limit)
     n_pages = (fetch_up_to + page_size - 1) // page_size
     offsets = [i * page_size for i in range(1, n_pages)]
 
     print(f"  {total_count:,} total MTS in org — fetching {fetch_up_to:,} across {n_pages} page(s) in parallel...", flush=True)
-    if total_count > hard_limit:
-        print(f"  Warning: truncating to {hard_limit:,}. Use --limit 0 to fetch all.", flush=True)
+    if total_count > effective_limit:
+        print(f"  Warning: truncating to {effective_limit:,}. Set MMS_FETCH_LIMIT=0 or --limit 0 to fetch all.", flush=True)
 
     all_results: list = list(first_results)
 

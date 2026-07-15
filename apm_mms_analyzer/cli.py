@@ -78,8 +78,9 @@ def main(argv: list[str] | None = None) -> None:
                         help="Splunk realm, e.g. us1 (or SPLUNK_REALM env var)")
     parser.add_argument("--environment", "-e", default=None,
                         help="Filter by sf_environment value")
-    parser.add_argument("--limit", type=int, default=500_000,
-                        help="Max MTS rows to fetch (default: 500000, use 0 for no limit)")
+    parser.add_argument("--limit", type=int,
+                        default=int(os.environ.get("MMS_FETCH_LIMIT", "0")),
+                        help="Max MTS rows to fetch (default: 0 = unlimited, or MMS_FETCH_LIMIT env var)")
 
     # AI
     parser.add_argument("--no-ai", action="store_true",
@@ -103,8 +104,7 @@ def main(argv: list[str] | None = None) -> None:
             print("Error: --token or SPLUNK_ACCESS_TOKEN required for live fetch", file=sys.stderr)
             sys.exit(1)
         print(f"Fetching all MTS from {args.realm}...", file=sys.stderr)
-        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment,
-                                           args.limit if args.limit > 0 else 10_000_000)
+        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment, args.limit)
         fetcher.write_tsv(ops, args.dump)
         print(f"Wrote {len(ops):,} rows to {args.dump}", file=sys.stderr)
         return
@@ -120,8 +120,7 @@ def main(argv: list[str] | None = None) -> None:
             print("       Use --input FILE to analyze a TSV dump without the API", file=sys.stderr)
             sys.exit(1)
         print(f"Fetching APM MMS from {args.realm}...", file=sys.stderr)
-        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment,
-                                           args.limit if args.limit > 0 else 10_000_000)
+        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment, args.limit)
         if not ops:
             print("No APM MMS data found. This org may not have APM MMS activated.", file=sys.stderr)
             sys.exit(0)
