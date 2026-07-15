@@ -78,8 +78,8 @@ def main(argv: list[str] | None = None) -> None:
                         help="Splunk realm, e.g. us1 (or SPLUNK_REALM env var)")
     parser.add_argument("--environment", "-e", default=None,
                         help="Filter by sf_environment value")
-    parser.add_argument("--limit", type=int, default=100_000,
-                        help="Max MTS rows to fetch (default: 100000)")
+    parser.add_argument("--limit", type=int, default=500_000,
+                        help="Max MTS rows to fetch (default: 500000, use 0 for no limit)")
 
     # AI
     parser.add_argument("--no-ai", action="store_true",
@@ -103,7 +103,8 @@ def main(argv: list[str] | None = None) -> None:
             print("Error: --token or SPLUNK_ACCESS_TOKEN required for live fetch", file=sys.stderr)
             sys.exit(1)
         print(f"Fetching all MTS from {args.realm}...", file=sys.stderr)
-        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment, args.limit)
+        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment,
+                                           args.limit if args.limit > 0 else 10_000_000)
         fetcher.write_tsv(ops, args.dump)
         print(f"Wrote {len(ops):,} rows to {args.dump}", file=sys.stderr)
         return
@@ -119,7 +120,8 @@ def main(argv: list[str] | None = None) -> None:
             print("       Use --input FILE to analyze a TSV dump without the API", file=sys.stderr)
             sys.exit(1)
         print(f"Fetching APM MMS from {args.realm}...", file=sys.stderr)
-        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment, args.limit)
+        ops = fetcher.fetch_from_splunk(args.token, args.realm, args.environment,
+                                           args.limit if args.limit > 0 else 10_000_000)
         if not ops:
             print("No APM MMS data found. This org may not have APM MMS activated.", file=sys.stderr)
             sys.exit(0)
